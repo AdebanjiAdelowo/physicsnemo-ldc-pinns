@@ -1,0 +1,19 @@
+# Reduced Reynolds-number study that runs on a laptop (Apple MPS or CPU).
+# Architecture, loss, optimiser and learning-rate decay as upstream; the number of
+# collocation points per step is a quarter and the number of steps is half of the
+# upstream values.
+defaults:
+  - official
+  - _self_
+
+name: local
+
+training:
+  steps: 5000
+  interior_points: 1000
+  boundary_points: 500
+  error_every: 500
+
+study:
+  reynolds: [10, 100, 400]
+  seeds: [0, 1, 2]

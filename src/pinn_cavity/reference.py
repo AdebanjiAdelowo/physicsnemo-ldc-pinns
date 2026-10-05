@@ -36,6 +36,9 @@ GHIA_V = {
 }
 # Stream function at the centre of the primary vortex (Ghia et al., Table III).
 GHIA_PSI_MIN = {100: -0.103423, 400: -0.113909, 1000: -0.117929}
+# Index of a tabulated v value that is inconsistent with its neighbours and with every grid of
+# the reference solver (Re = 400, x = 0.9063). It is kept in the table and reported separately.
+GHIA_V_SUSPECT = {400: 5}
 
 SOLVER_VERSION = 1
 
@@ -155,12 +158,17 @@ def compare_with_ghia(sol: dict, reynolds: int) -> dict:
     v = np.interp(GHIA_X, lines["s"], lines["v_horizontal"])
     du = u - np.array(GHIA_U[reynolds])
     dv = v - np.array(GHIA_V[reynolds])
+    keep = np.ones(dv.size, dtype=bool)
+    if reynolds in GHIA_V_SUSPECT:
+        keep[GHIA_V_SUSPECT[reynolds]] = False
     return {
         "reynolds": reynolds,
         "u_max_abs_difference": float(np.abs(du).max()),
         "u_rms_difference": float(np.sqrt(np.mean(du**2))),
         "v_max_abs_difference": float(np.abs(dv).max()),
         "v_rms_difference": float(np.sqrt(np.mean(dv**2))),
+        "v_max_abs_difference_without_suspect": float(np.abs(dv[keep]).max()),
+        "v_rms_difference_without_suspect": float(np.sqrt(np.mean(dv[keep] ** 2))),
         "v_differences": dv.tolist(),
         "u_differences": du.tolist(),
         "psi_min": float(sol["psi"].min()),

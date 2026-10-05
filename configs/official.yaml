@@ -73,7 +73,7 @@ study:
   seeds: [0]
 
 reference:
-  grid: 257             # nodes per side of the finite-difference reference solution
+  grid: 513             # nodes per side of the finite-difference reference solution
 
 evaluation:
   residual_grid: 128    # cells per side; residuals are evaluated at cell centres
