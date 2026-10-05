@@ -1,0 +1,12 @@
+# Reynolds-number study at the upstream settings: architecture, collocation
+# points, optimiser, schedule and step count as in the NVIDIA example.
+# Only the viscosity and the seed change between runs. Intended for a CUDA GPU.
+defaults:
+  - official
+  - _self_
+
+name: full
+
+study:
+  reynolds: [10, 100, 400]
+  seeds: [0, 1, 2]

@@ -1,0 +1,30 @@
+# Pipeline check. Finishes in about a minute on a laptop CPU.
+# The numbers it produces are not results.
+defaults:
+  - official
+  - _self_
+
+name: smoke
+device: cpu
+
+model:
+  layer_size: 32
+
+training:
+  steps: 40
+  interior_points: 256
+  boundary_points: 128
+  log_every: 10
+  error_every: 20
+
+study:
+  reynolds: [10, 100]
+  seeds: [0]
+
+reference:
+  grid: 33
+
+evaluation:
+  residual_grid: 16
+  timing_warmup: 1
+  timing_repeats: 3

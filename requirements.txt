@@ -1,0 +1,6 @@
+# PhysicsNeMo is pinned to the commit of the main branch that the adapted example was taken from.
+# The `sym` extra provides physicsnemo.sym (PDE, PhysicsInformer), which the cavity example needs.
+nvidia-physicsnemo[sym] @ git+https://github.com/NVIDIA/physicsnemo.git@b45a5c810c741e6b41f8515be24c51121f8fc21f
+hydra-core>=1.3.2
+matplotlib>=3.8
+pytest>=8.0

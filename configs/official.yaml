@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+arch:
+  decoder:
+    out_features: 3
+    layers: 1
+    layer_size: 32
+
+  fno:
+    in_channels: 2
+    dimension: 2
+    latent_channels: 32
+    fno_layers: 4
+    fno_modes: 12
+    padding: 9
+
+scheduler:
+  initial_lr: 1.E-3
+  decay_rate: .9995
+
+# ---------------------------------------------------------------------------
+# Everything above this line is the upstream config.yaml, unchanged. Of those
+# keys the upstream train.py reads only scheduler.initial_lr; `arch` and
+# scheduler.decay_rate are not used by it and are not used here.
+#
+# Keys below were added by Adebanji Adelowo (2026). The values in `problem`,
+# `model`, `geometry` and `training` are the constants written in the upstream
+# train.py, moved into the configuration.
+# ---------------------------------------------------------------------------
+name: official
+device: auto            # auto: cuda, then mps, then cpu
+output_dir: runs/${name}
+data_dir: data
+
+problem:
+  width: 0.1            # cavity is [-width/2, width/2] x [-height/2, height/2]
+  height: 0.1
+  lid_velocity: 1.0     # target u on the top wall in the upstream loss
+  rho: 1.0
+
+model:
+  num_layers: 6
+  layer_size: 512
+
+geometry:
+  mesh_points_per_side: 50
+
+training:
+  steps: 10000
+  interior_points: 4000
+  boundary_points: 2000
+  lr_decay_per_step: 0.9999871767586216
+  log_every: 100        # steps between rows of history.csv
+  error_every: 1000     # steps between evaluations of the velocity error
+
+study:
+  # Re = lid_velocity * width / nu. The upstream nu = 0.01 corresponds to Re = 10.
+  reynolds: [10]
+  seeds: [0]
+
+reference:
+  grid: 257             # nodes per side of the finite-difference reference solution
+
+evaluation:
+  residual_grid: 128    # cells per side; residuals are evaluated at cell centres
+  timing_warmup: 3
+  timing_repeats: 10

@@ -1,0 +1,12 @@
+[project]
+name = "physicsnemo-pinn-cavity"
+version = "0.1.0"
+description = "Reynolds-number study of the NVIDIA PhysicsNeMo lid-driven-cavity PINN example"
+requires-python = ">=3.11,<3.15"
+license = "Apache-2.0"
+authors = [{ name = "Adebanji Adelowo" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
