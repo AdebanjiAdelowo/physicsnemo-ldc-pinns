@@ -1,0 +1,91 @@
+{
+  "metadata_note": "Written after the study had started: the study was launched with --resume, which at this commit did not write this file. Same clean checkout and environment as the runs; timestamp_utc is the time of writing, not of the start.",
+  "timestamp_utc": "2026-10-06T09:28:16+00:00",
+  "git_commit": "ec3199d5221b5aeeec68f5b591a525e518202628",
+  "git_dirty": false,
+  "device": "mps",
+  "gpu_name": null,
+  "cuda_version": null,
+  "python_version": "3.12.2",
+  "torch_version": "2.14.1",
+  "physicsnemo": {
+    "version": "2.3.0a0",
+    "commit": "b45a5c810c741e6b41f8515be24c51121f8fc21f",
+    "url": "https://github.com/nvidia/physicsnemo"
+  },
+  "numpy_version": "2.5.3",
+  "scipy_version": "1.18.1",
+  "sympy_version": "1.14.0",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "processor": "arm",
+  "config": {
+    "arch": {
+      "decoder": {
+        "out_features": 3,
+        "layers": 1,
+        "layer_size": 32
+      },
+      "fno": {
+        "in_channels": 2,
+        "dimension": 2,
+        "latent_channels": 32,
+        "fno_layers": 4,
+        "fno_modes": 12,
+        "padding": 9
+      }
+    },
+    "scheduler": {
+      "initial_lr": 0.001,
+      "decay_rate": 0.9995
+    },
+    "name": "official",
+    "device": "mps",
+    "output_dir": "runs/official",
+    "data_dir": "data",
+    "problem": {
+      "width": 0.1,
+      "height": 0.1,
+      "lid_velocity": 1.0,
+      "rho": 1.0
+    },
+    "model": {
+      "num_layers": 6,
+      "layer_size": 512
+    },
+    "geometry": {
+      "mesh_points_per_side": 50
+    },
+    "training": {
+      "steps": 10000,
+      "interior_points": 4000,
+      "boundary_points": 2000,
+      "lr_decay_per_step": 0.9999871767586216,
+      "log_every": 100,
+      "error_every": 1000
+    },
+    "study": {
+      "reynolds": [
+        10
+      ],
+      "seeds": [
+        0
+      ]
+    },
+    "reference": {
+      "grid": 513
+    },
+    "evaluation": {
+      "residual_grid": 128,
+      "timing_warmup": 3,
+      "timing_repeats": 10
+    }
+  },
+  "references": {
+    "10": {
+      "file": "reference_re10_n513_ece3f548fb.npz",
+      "grid": 513,
+      "solve_seconds": 63.65394683298655,
+      "newton_final_residual": 4.249159246683121e-09
+    }
+  }
+}
