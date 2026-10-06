@@ -1,0 +1,19 @@
+physicsnemo-pinn-cavity
+Copyright 2026 Adebanji Adelowo
+
+This repository contains material adapted from NVIDIA PhysicsNeMo
+(https://github.com/NVIDIA/physicsnemo), Copyright (c) 2023 - 2026 NVIDIA
+CORPORATION & AFFILIATES, licensed under the Apache License, Version 2.0.
+
+Adapted from examples/cfd/ldc_pinns at commit
+b45a5c810c741e6b41f8515be24c51121f8fc21f:
+
+  configs/official.yaml          from config.yaml (text kept unchanged; keys added below a marker)
+  src/pinn_cavity/equations.py   class NavierStokes from train.py (body unchanged)
+  src/pinn_cavity/engine.py      geometry and sampling, network construction, loss and
+                                 optimisation loop from train.py
+
+Each of these files carries the original NVIDIA copyright and licence header and
+a statement of the changes. The fully connected network, the mesh and sampling
+utilities, the PDE base class, the PhysicsInformer and the checkpoint utilities
+are imported from the PhysicsNeMo package and are not copied.

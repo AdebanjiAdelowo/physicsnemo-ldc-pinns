@@ -107,3 +107,13 @@ def test_package_bundle_and_publish(trained, tmp_path):
     assert "smoke/summary.json" in names and not any("checkpoints" in n for n in names)
     bundled = zipfile.ZipFile(work.parent / "smoke_eval_bundle.zip").namelist()
     assert len(bundled) == 4 and all(n.startswith("runs/smoke/re0") and ".20." in n for n in bundled)
+
+
+def test_resume_writes_metadata_once_and_skips_finished_runs(tmp_path, capsys):
+    cfg = load_config("smoke", OVERRIDES + ["study.reynolds=[10]"])
+    study.train_study(cfg, tmp_path, resume=True)
+    record = tmp_path / cfg.output_dir / "study_metadata.json"
+    first = record.read_text()
+    study.train_study(cfg, tmp_path, resume=True)
+    assert record.read_text() == first
+    assert "[skip] re0010_seed0" in capsys.readouterr().out

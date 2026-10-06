@@ -1,0 +1,22 @@
+{
+  "run": "re0100_seed2",
+  "reynolds": 100,
+  "viscosity": 0.001,
+  "seed": 2,
+  "parameters": 1316355,
+  "optimiser_steps": 5000,
+  "final_train_loss": 0.34830665588378906,
+  "final_loss_terms": {
+    "continuity": 0.0,
+    "momentum_x": 0.0,
+    "momentum_y": 0.0,
+    "u_no_slip": 0.11081963777542114,
+    "v_no_slip": 0.0,
+    "u_lid": 0.23748700320720673,
+    "v_lid": 0.0
+  },
+  "train_seconds": 817.6604745000368,
+  "error_tracking_seconds": 2.4923313758336008,
+  "seconds_per_step": 0.16303362862484064,
+  "peak_train_memory_mb": null
+}

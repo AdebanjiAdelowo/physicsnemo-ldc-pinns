@@ -1,0 +1,22 @@
+{
+  "run": "re0400_seed1",
+  "reynolds": 400,
+  "viscosity": 0.00025,
+  "seed": 1,
+  "parameters": 1316355,
+  "optimiser_steps": 5000,
+  "final_train_loss": 0.025472702458500862,
+  "final_loss_terms": {
+    "continuity": 1.90238927189057e-06,
+    "momentum_x": 0.00010330726217944175,
+    "momentum_y": 5.182830022931739e-07,
+    "u_no_slip": 0.006048479583114386,
+    "v_no_slip": 2.0133745692874072e-06,
+    "u_lid": 0.01931561343371868,
+    "v_lid": 8.688446655469306e-07
+  },
+  "train_seconds": 834.6428151250584,
+  "error_tracking_seconds": 2.794040209031664,
+  "seconds_per_step": 0.16636975498320536,
+  "peak_train_memory_mb": null
+}

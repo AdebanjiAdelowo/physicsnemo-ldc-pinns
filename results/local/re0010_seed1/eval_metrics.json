@@ -1,0 +1,20 @@
+{
+  "checkpoint_step": 5000,
+  "reference_file": "reference_re10_n513_ece3f548fb.npz",
+  "velocity_rel_l2": 0.4560371362946227,
+  "u_rel_l2": 0.42537352925345223,
+  "v_rel_l2": 0.5234317944012576,
+  "velocity_rel_l2_core": 0.5386340089108417,
+  "velocity_max_abs_error": 0.894594549552796,
+  "centreline_u_rms_error": 0.07658359005391788,
+  "centreline_v_rms_error": 0.03642066112646823,
+  "centreline_u_min": -0.1391010284423828,
+  "centreline_u_min_reference": -0.20756934057117604,
+  "no_slip_rms_error": 0.029629152223473933,
+  "lid_u_rms_error": 0.1402366883754591,
+  "residual_rms_continuity": 0.9782236099243165,
+  "residual_rms_momentum_x": 0.6554539203643799,
+  "residual_rms_momentum_y": 0.26445176601409914,
+  "inference_points": 263169,
+  "inference_ms": 459.46049998747185
+}

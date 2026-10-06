@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: >-
+  If you use this repository, please cite it and the NVIDIA PhysicsNeMo framework
+  it is built on (see the references section).
+title: "Reynolds-number study of the PhysicsNeMo lid-driven-cavity PINN example"
+type: software
+authors:
+  - family-names: Adelowo
+    given-names: Adebanji
+license: Apache-2.0
+references:
+  - type: software
+    title: "NVIDIA PhysicsNeMo: An open-source framework for physics-based deep learning in science and engineering"
+    authors:
+      - name: "PhysicsNeMo Contributors"
+    url: "https://github.com/NVIDIA/physicsnemo"
+  - type: article
+    title: "Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations"
+    authors:
+      - family-names: Raissi
+        given-names: Maziar
+      - family-names: Perdikaris
+        given-names: Paris
+      - family-names: Karniadakis
+        given-names: George Em
+    journal: "Journal of Computational Physics"
+    volume: 378
+    year: 2019
+    doi: "10.1016/j.jcp.2018.10.045"
+  - type: article
+    title: "High-Re solutions for incompressible flow using the Navier-Stokes equations and a multigrid method"
+    authors:
+      - family-names: Ghia
+        given-names: U.
+      - family-names: Ghia
+        given-names: K. N.
+      - family-names: Shin
+        given-names: C. T.
+    journal: "Journal of Computational Physics"
+    volume: 48
+    year: 1982
+    doi: "10.1016/0021-9991(82)90058-4"

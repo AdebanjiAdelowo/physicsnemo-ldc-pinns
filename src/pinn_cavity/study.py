@@ -61,7 +61,9 @@ PLOT_STRIDE_TARGET = 128  # fields.npz holds at most 129 x 129 nodes
 
 def train_study(cfg: DictConfig, root: Path, resume: bool = False) -> Path:
     """Train every (Reynolds number, seed) run of the study. ``resume`` skips runs that already finished."""
-    out_dir, device, references = engine.prepare_study(cfg, root, write_metadata=not resume)
+    # a resumed study keeps the record of its first start; a study started with --resume gets one
+    started = (Path(root) / cfg.output_dir / "study_metadata.json").exists()
+    out_dir, device, references = engine.prepare_study(cfg, root, write_metadata=not (resume and started))
     for reynolds, seed in engine.study_runs(cfg):
         run_dir = out_dir / engine.run_name(reynolds, seed)
         if resume and (run_dir / "train_metrics.json").exists():
