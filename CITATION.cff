@@ -8,6 +8,7 @@ authors:
   - family-names: Adelowo
     given-names: Adebanji
 license: Apache-2.0
+repository-code: "https://github.com/AdebanjiAdelowo/physicsnemo-ldc-pinns"
 references:
   - type: software
     title: "NVIDIA PhysicsNeMo: An open-source framework for physics-based deep learning in science and engineering"

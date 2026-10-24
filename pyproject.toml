@@ -2,9 +2,26 @@
 name = "physicsnemo-pinn-cavity"
 version = "0.1.0"
 description = "Reynolds-number study of the NVIDIA PhysicsNeMo lid-driven-cavity PINN example"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.12,<3.15"
 license = "Apache-2.0"
 authors = [{ name = "Adebanji Adelowo" }]
+# PhysicsNeMo is pinned to the commit of the main branch that the adapted example was taken from.
+# Versions below are those recorded in results/*/study_metadata.json for the reported runs.
+dependencies = [
+    "nvidia-physicsnemo[sym] @ git+https://github.com/NVIDIA/physicsnemo.git@b45a5c810c741e6b41f8515be24c51121f8fc21f",
+    "torch==2.14.1",
+    "numpy==2.5.3",
+    "scipy==1.18.1",
+    "sympy==1.14.0",
+    "hydra-core>=1.3.2",
+    "matplotlib>=3.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv]
+package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
