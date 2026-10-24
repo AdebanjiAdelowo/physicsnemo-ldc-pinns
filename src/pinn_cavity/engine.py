@@ -397,6 +397,10 @@ def evaluate_run(
     scale = {"continuity": width / lid, "momentum_x": width / lid**2, "momentum_y": width / lid**2}
     for name in RESIDUALS:
         out[f"residual_rms_{name}"] = float(torch.sqrt(torch.mean(res[name].detach() ** 2)).item() * scale[name])
+    # the residuals hold their second-derivative graphs; on a 16 GB GPU the timing below runs out of memory with them
+    del res
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
 
     # Inference time of the velocity and pressure on the full reference grid.
     times = []
