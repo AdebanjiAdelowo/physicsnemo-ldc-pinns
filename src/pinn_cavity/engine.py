@@ -50,6 +50,7 @@ from .provenance import collect_metadata, write_json
 RESIDUALS = ["continuity", "momentum_x", "momentum_y"]
 LOSS_TERMS = RESIDUALS + ["u_no_slip", "v_no_slip", "u_lid", "v_lid"]
 HISTORY_FIELDS = ["step", "learning_rate", "loss", *LOSS_TERMS, "velocity_rel_l2", "elapsed_seconds"]
+LID_CORNER_RADII = (0.02, 0.05, 0.1)  # in units of the cavity width
 
 
 def resolve_device(name: str) -> torch.device:
@@ -213,6 +214,35 @@ def relative_l2(pred: np.ndarray, truth: np.ndarray) -> float:
     return float(np.sqrt(np.sum((pred - truth) ** 2) / np.sum(truth**2)))
 
 
+def corner_robust_metrics(u: np.ndarray, v: np.ndarray, reference: dict, width: float, lid: float) -> dict:
+    """Velocity and boundary errors that do not depend on the two lid corners.
+
+    The boundary velocity jumps from ``U`` to 0 at the lid corners, the reference sets the
+    corner nodes to the lid value and the loss of the example gives the lid condition zero
+    weight there. The relative error is also given with trapezoidal weights, the quadrature
+    of the continuous L2 norm on the nodes.
+    """
+    u_ref, v_ref = reference["u"], reference["v"]
+    err2 = (u - u_ref) ** 2 + (v - v_ref) ** 2
+    ref2 = u_ref**2 + v_ref**2
+    w = np.ones(u_ref.shape[0])
+    w[[0, -1]] = 0.5
+    w = np.outer(w, w)
+    out = {"velocity_rel_l2_trapezoid": float(np.sqrt((w * err2).sum() / (w * ref2).sum()))}
+    xx, yy = np.meshgrid(reference["x"], reference["y"], indexing="ij")
+    top = reference["y"][-1]
+    r = np.minimum(np.hypot(xx - reference["x"][0], yy - top), np.hypot(xx - reference["x"][-1], yy - top)) / width
+    for radius in LID_CORNER_RADII:
+        keep = r >= radius
+        out[f"velocity_rel_l2_without_lid_corners_r{radius:g}"] = float(np.sqrt(err2[keep].sum() / ref2[keep].sum()))
+    # the two corner nodes belong to the lid and to a side wall; they are left out of both
+    speed = np.hypot(u, v)
+    walls = np.concatenate([speed[0, :-1], speed[-1, :-1], speed[1:-1, 0]])
+    out["no_slip_rms_error_without_corners"] = float(np.sqrt(np.mean(walls**2)) / lid)
+    out["lid_u_rms_error_without_corners"] = float(np.sqrt(np.mean((u[1:-1, -1] - lid) ** 2)) / lid)
+    return out
+
+
 def velocity_error(model, reference: dict, stride: int, device: torch.device) -> float:
     """Relative L2 error of the velocity vector on the (sub-sampled) reference grid."""
     out = predict(model, grid_points(reference, stride, device))
@@ -346,6 +376,7 @@ def evaluate_run(
     walls = np.concatenate([np.hypot(u, v)[0, :], np.hypot(u, v)[-1, :], np.hypot(u, v)[:, 0]])
     out["no_slip_rms_error"] = float(np.sqrt(np.mean(walls**2)) / lid)
     out["lid_u_rms_error"] = float(np.sqrt(np.mean((u[:, -1] - lid) ** 2)) / lid)
+    out.update(corner_robust_metrics(u, v, reference, width, lid))
 
     if int(reynolds) in ref.GHIA_U:
         # the network is evaluated at the tabulated positions, no interpolation

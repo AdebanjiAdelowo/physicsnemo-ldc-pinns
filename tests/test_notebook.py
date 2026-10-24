@@ -45,6 +45,13 @@ def test_archive_names():
         assert f"physicsnemo-pinn-cavity-{name}.zip" in text
 
 
+def test_clones_this_repository():
+    # a launcher pointed at another repository cannot check out commits that exist only here
+    cff = (REPO_ROOT / "CITATION.cff").read_text()
+    url = re.search(r'^repository-code: "(.+)"$', cff, re.M).group(1)
+    assert f'REPO_URL = "{url}.git"' in _code()[0]
+
+
 def test_ref_must_be_a_full_sha():
     assert 'fullmatch(r"[0-9a-f]{40}", REF)' in _code()[0]
 
