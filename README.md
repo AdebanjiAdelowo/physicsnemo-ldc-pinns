@@ -152,15 +152,14 @@ The pressure is not compared: the reference solver does not compute it.
 
 ## Installation
 
-Python 3.11 to 3.14.
+Python 3.12 to 3.14. With [uv](https://docs.astral.sh/uv/), from the lockfile:
 
 ```bash
-python -m venv .venv
+uv sync
 source .venv/bin/activate
-pip install -r requirements.txt
 ```
 
-`requirements.txt` installs PhysicsNeMo with its `sym` extra from the pinned commit, with PyTorch, SymPy, Hydra, SciPy, Matplotlib and pytest.
+`pyproject.toml` and `uv.lock` pin PhysicsNeMo with its `sym` extra at the commit of the example and PyTorch, NumPy, SciPy and SymPy at the versions recorded with the results. Without uv, `pip install -r requirements.txt` installs the same packages with unpinned versions.
 
 ## Smoke test
 
@@ -253,7 +252,7 @@ Two studies were run, both on an Apple M3 Pro with MPS, from a clean checkout of
 | reduced | 400 | 1 | 87.1% | 100.1% | 100.1% | 0.034 | 0.362 | 0.124 | 0.108 | 2.5e-02 |
 | reduced | 400 | 2 | 88.9% | 100.3% | 100.0% | 0.040 | 0.140 | 0.080 | 0.255 | 5.2e-02 |
 
-Errors are relative $L^2$ errors against the reference solution on 513 × 513 nodes; "core" is the part of the cavity at least $0.1\,L$ from every wall. Residuals are root-mean-square values without the distance weight, in units of $U/L$ and $U^2/L$. Boundary errors are in units of $U$, without the lid weight. The final loss is the value at the last step, with the weights of the example. The error of the reference itself is about 0.4% in this norm (see [Reference solution](#reference-solution)).
+Errors are relative $L^2$ errors against the reference solution on 513 × 513 nodes; "core" is the part of the cavity at least $0.1\,L$ from every wall. Residuals are root-mean-square values without the distance weight, in units of $U/L$ and $U^2/L$. Boundary errors are in units of $U$, without the lid weight. The final loss is the value at the last step, with the weights of the example. The error of the reference itself is below 0.6% in this norm and below 0.1% in the core (see [Reference solution](#reference-solution) and [docs/REFERENCE_SOLVER_VALIDATION.md](docs/REFERENCE_SOLVER_VALIDATION.md)).
 
 Mean and sample standard deviation over the three seeds of the reduced study:
 
@@ -304,11 +303,13 @@ The statements below are about this network, this loss and this optimisation rec
 - **Budget is a factor at $\mathrm{Re} = 10$, and it does not close the gap.** Four times the points and twice the steps lower the error of seed 0 from 47.3% to 38.3%. The plateau after step 4000 indicates that more steps of the same recipe would not bring a large further gain; one seed is not enough to quantify this.
 - **At $\mathrm{Re} = 100$ and $400$ the reduced runs do not find the cavity flow.** In all six of these runs the error against the reference is 80% or more, and the error of the vertical velocity is 100.0% to 100.1%: the predicted $v$ is essentially zero everywhere. Apart from the collapsed run described below, the networks represent a thin layer below the lid in which $u$ drops from the lid speed to about zero, above an interior at rest. In the central part of the cavity the error is 100% or more.
 - **Lower residuals with higher errors.** The unweighted continuity residual is 0.74 to 0.98 in the four runs at $\mathrm{Re} = 10$ and 0.03 to 0.11 in the five higher-Reynolds runs that did not collapse, where the velocity error is about twice as large. A fluid at rest satisfies the equations exactly, and a unidirectional shear layer nearly does, so the residual does not distinguish these states from the solution. The mismatch is paid at the boundary instead: the loss at $\mathrm{Re} = 100$ and $400$ is dominated by the $u$ terms on the fixed walls and on the lid, which are on average 10 to 70 times larger than at $\mathrm{Re} = 10$.
-- **One run collapsed.** Seed 2 at $\mathrm{Re} = 100$ follows the other two seeds until step 4000 (tracked error 75% to 82%). Between steps 4000 and 4100 its output becomes a constant, $u \approx 1/3$ and $v \approx 0$ everywhere: all three residuals are zero to machine precision, the loss rises from 0.02 to 0.34 and does not recover, and the velocity error ends at 161%. The run is seeded, finite and on protocol, and it is kept in every table and figure. It is the reason the standard deviation at $\mathrm{Re} = 100$ is 46 percentage points.
+- **One run collapsed.** Seed 2 at $\mathrm{Re} = 100$ follows the other two seeds until step 4000 (tracked error 75% to 82%). Between steps 4000 and 4100 its output becomes a constant, $u \approx 1/3$ and $v \approx 0$ everywhere: all three residuals are exactly zero, the loss rises from 0.02 to 0.34 and does not recover, and the velocity error ends at 161%. In the final network 509 of the 512 neurons of the last hidden layer output exactly zero everywhere, and the loss equals $1/3$, the minimum of the loss over constant fields ($u = 1/3$). The run is seeded, finite and on protocol, and it is kept in every table and figure. It is the reason the standard deviation at $\mathrm{Re} = 100$ is 46 percentage points; the median over seeds is 80.5%.
 - **Seed sensitivity grows with the Reynolds number.** The range over seeds is 1.7 percentage points at $\mathrm{Re} = 10$ and 21 at $\mathrm{Re} = 400$; the recorded losses of the higher-Reynolds runs jump by factors of 6 to 47 between consecutive records, against 4 for seed 0 at $\mathrm{Re} = 10$.
 - **A lower loss is not a proportionally lower error.** The run at the upstream settings ends with a loss 3.7 times lower than the reduced run of the same seed and Reynolds number, for an error that is lower by a fifth, and over its last 6000 steps the loss more than halves while the error does not trend.
 
-Two features of the recipe are consistent with these observations and are not tested here as causes: the residual terms enter the loss with weights of at most $2.5 \times 10^{-3}$ against 1 for the boundary terms, and the viscous term that couples the lid to the interior is itself multiplied by $\nu$, which is 10 and 40 times smaller at the higher Reynolds numbers.
+- **The loss does not distinguish the cavity flow from a lid layer at the higher Reynolds numbers.** A hand-written field with a thin layer of fluid under the lid and fluid at rest below it, $u = U g(x) e^{-(L/2 - y)/\delta}$, $v = p = 0$, scores a loss of $7.0 \times 10^{-4}$ at $\mathrm{Re} = 100$ and $9.5 \times 10^{-5}$ at $\mathrm{Re} = 400$ with the loss of the example. That is 30 to 660 times below the trained networks, for a velocity error of 75% and 83%. At $\mathrm{Re} = 10$ the same construction scores $2.0 \times 10^{-2}$, above the trained networks. Because the residual is multiplied by the distance to the wall, the residual cost of such a layer is about $\nu^2 U^2 / (4 L \delta)$ and falls with the square of the viscosity. At these Reynolds numbers a low loss is therefore no evidence of a correct velocity field, at any training budget. See [docs/SCIENTIFIC_AUDIT.md](docs/SCIENTIFIC_AUDIT.md), finding F1.
+
+Two features of the recipe are consistent with these observations: the residual terms enter the loss with weights of at most $2.5 \times 10^{-3}$ against 1 for the boundary terms, and the viscous term that couples the lid to the interior is itself multiplied by $\nu$, which is 10 and 40 times smaller at the higher Reynolds numbers. The construction above shows that together they make degenerate low-loss fields available; which change of the recipe would remove them has not been tested.
 
 Whether the higher Reynolds numbers behave differently with the full budget of the example is the question of `configs/full.yaml`, which gives every Reynolds number and seed the 10 000 steps and the point counts of the original. It has not been run.
 
@@ -324,6 +325,12 @@ Whether the higher Reynolds numbers behave differently with the full budget of t
 - Training and inference times were recorded while another training job was using the same machine, and the machine slept for seven hours during the evaluation of the reduced study. They are kept in the records and are not benchmarks; no timing result is reported. An isolated measurement before the studies gave about 0.5 s per step for the upstream recipe on MPS.
 - The values of Ghia et al. were transcribed by hand. They are a secondary check; the solver is verified against the published extrema independently of them.
 
+## Independent audit
+
+[`docs/SCIENTIFIC_AUDIT.md`](docs/SCIENTIFIC_AUDIT.md) checks the equations, the agreement with the upstream example ([`docs/UPSTREAM_COMPARISON.md`](docs/UPSTREAM_COMPARISON.md)), the reference solver ([`docs/REFERENCE_SOLVER_VALIDATION.md`](docs/REFERENCE_SOLVER_VALIDATION.md)) and every reported number, and lists what has not been run ([`docs/EXPERIMENT_GAPS.md`](docs/EXPERIMENT_GAPS.md)). Every stored metric of the ten runs was recomputed on CPU from the checkpoints against reference solutions solved again from scratch: the largest relative difference is $2.4 \times 10^{-5}$, and the references are bitwise identical. `scripts/audit.py` repeats this and writes [`results/audit/audit.json`](results/audit/audit.json).
+
+The audit adds metrics that do not depend on the two lid corners, where the boundary velocity is discontinuous: the velocity error without the nodes within $0.02 L$, $0.05 L$ or $0.1 L$ of a corner, with trapezoidal weights, and boundary errors that leave out the two corner nodes. The stored `lid_u_rms_error` and `no_slip_rms_error` count those nodes as both lid and wall. The corners change no velocity error by more than 1.2 percentage points.
+
 ## Reproducibility
 
 - Every study writes `study_metadata.json` with the UTC timestamp, the git commit and whether the tree was modified, the device, the Python, PyTorch, PhysicsNeMo (version and commit), NumPy, SciPy and SymPy versions, the resolved configuration, and a record of each reference solution.
@@ -331,17 +338,18 @@ Whether the higher Reynolds numbers behave differently with the full budget of t
 - Both studies ran from a clean checkout of commit `ec3199d`. The stored velocity errors of all ten runs were recomputed on CPU from the checkpoints with `scripts/evaluate.py --verify` and agree to a relative difference below $10^{-7}$.
 - The `study_metadata.json` files of `local` and `official` were written after the studies had started and say so in `metadata_note`: the studies were launched with `--resume`, which at that commit did not write the record. Commit, environment and configuration are those of the runs; `timestamp_utc` is the time of writing. `--resume` now writes the record when none exists.
 - Reference solutions are cached under `data/` with a key that covers the Reynolds number, the grid, the cavity size, the lid speed and a solver version. `data/`, `runs/` and checkpoints are not tracked.
-- 46 tests cover the configurations, the equality of the loss with the upstream expression, the residuals against an analytic field, the reference solver, an end-to-end study and the Kaggle launcher.
+- 52 tests cover the configurations, the equality of the loss with the upstream expression, the residuals against an analytic field, the reference solver, an end-to-end study, the Kaggle launcher and the properties of the loss established by the audit.
 
 Repository layout:
 
 ```text
 configs/          official.yaml (upstream values), smoke.yaml, local.yaml, full.yaml
-src/pinn_cavity/  config, equations, engine, study, reference, plotting, provenance
-scripts/          train.py, evaluate.py, plot_results.py, results.py, verify_reference.py
-tests/            configuration, loss and residuals, reference solver, end-to-end study, notebook
+src/pinn_cavity/  config, equations, engine, study, reference, plotting, provenance, diagnostics
+scripts/          train.py, evaluate.py, plot_results.py, results.py, verify_reference.py, audit.py
+tests/            configuration, loss and residuals, reference solver, end-to-end study, notebook, audit
 kaggle/           run_cuda.ipynb
-results/          tracked summaries and records
+docs/             scientific audit, upstream comparison, reference validation, experiment gaps
+results/          tracked summaries and records; results/audit/ holds the audit recomputation
 figures/          tracked figures
 ```
 

@@ -2,8 +2,9 @@
 
     python scripts/audit.py --runs-root /path/to/runs
 
-``--runs-root`` is a directory holding ``official/`` and ``local/`` run directories with
-their checkpoints (they are not tracked). Nothing there is written. The script
+``--runs-root`` is a directory holding the run directories of the studies (``official/`` and
+``local/`` by default, ``--studies`` to change) with their checkpoints, which are not tracked.
+Nothing there is written. The script
 
 1. recomputes the 513-node reference solutions and, with ``--reference-dir``, compares them
    with previously cached ones;
@@ -127,7 +128,8 @@ def degenerate_section(cfg, refs: dict, interior: int, boundary: int, batches: i
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--runs-root", type=Path, required=True, help="directory with official/ and local/ run directories")
+    parser.add_argument("--runs-root", type=Path, required=True, help="directory with one run directory per study")
+    parser.add_argument("--studies", nargs="+", default=["official", "local"], help="studies with records in results/<study>")
     parser.add_argument("--reference-dir", type=Path, default=None, help="cached reference solutions to compare with")
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--loss-batches", type=int, default=25, help="independent batches at the upstream point counts")
@@ -140,7 +142,7 @@ def main() -> None:
 
     refs, report["references"] = reference_section(upstream, [10, 100, 400], args.reference_dir)
 
-    for study in ("official", "local"):
+    for study in args.studies:
         cfg = load_config(study, overrides)
         for reynolds, seed in engine.study_runs(cfg):
             name = engine.run_name(reynolds, seed)
