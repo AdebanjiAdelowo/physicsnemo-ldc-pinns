@@ -40,9 +40,11 @@ def test_tests_run_before_any_study():
 
 
 def test_archive_names():
+    # named after this repository, not the sibling repository physicsnemo-pinn-cavity
     text = "\n".join(_code())
-    for name in ("full", "full-eval-bundle"):
-        assert f"physicsnemo-pinn-cavity-{name}.zip" in text
+    for name in ("full-{TAG}", "full-{TAG}-eval-bundle"):
+        assert f"physicsnemo-ldc-pinns-{name}.zip" in text
+    assert "physicsnemo-pinn-cavity" not in text
 
 
 def test_clones_this_repository():
@@ -66,11 +68,24 @@ def test_referenced_scripts_and_configs_exist():
 
 def test_projection_matches_the_full_config():
     cfg = load_config("full")
-    text = "\n".join(_code())
-    assert f"n_runs = {len(cfg.study.reynolds) * len(cfg.study.seeds)}" in text
+    code = _code()
+    text = "\n".join(code)
+    assert f"REYNOLDS = {list(cfg.study.reynolds)}" in code[0]
+    allowed = "{" + ", ".join(str(r) for r in sorted(cfg.study.reynolds)) + "}"
+    assert f"set(REYNOLDS) <= {allowed}" in code[0]
+    assert f"n_runs = len(REYNOLDS) * {len(cfg.study.seeds)}" in text
     assert f"* {cfg.training.steps} * n_runs" in text
-    largest = max(cfg.study.reynolds)
-    assert f"study.reynolds=[{largest}]" in text and f"full_probe/re{largest:04d}_seed0" in text
+    # the probe runs at the largest Reynolds number of the session
+    assert "study.reynolds=[{max(REYNOLDS)}]" in text and "full_probe/re{max(REYNOLDS):04d}_seed0" in text
+
+
+def test_session_trains_only_its_reynolds_numbers():
+    code = _code()
+    namespace = {}
+    exec(code[0].replace('REF = "SET_TO_FULL_40_CHARACTER_COMMIT_SHA"', 'REF = "' + "0" * 40 + '"').replace("REYNOLDS = [10, 100, 400]", "REYNOLDS = [400, 100]"), namespace)
+    assert namespace["RE_OVERRIDE"] == "study.reynolds=[100,400]" and namespace["TAG"] == "re100-400"
+    step_b = next(c for c in code if "--config full --resume" in c)
+    assert "--config full --resume device=cuda {RE_OVERRIDE}" in step_b
 
 
 def test_official_run_is_part_of_the_full_study():
