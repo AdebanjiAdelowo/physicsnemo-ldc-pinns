@@ -92,3 +92,11 @@ def test_official_run_is_part_of_the_full_study():
     official, full = load_config("official"), load_config("full")
     assert official.study.reynolds[0] in full.study.reynolds and official.study.seeds[0] in full.study.seeds
     assert official.training == full.training and official.model == full.model
+
+
+def test_environment_is_the_locked_one():
+    # the image's packages mixed versions with pip; the launcher installs uv.lock exactly
+    text = "\n".join(_code())
+    assert "uv sync --frozen" in text and "pip install -q -r requirements.txt" not in text
+    for line in text.splitlines():
+        assert not line.lstrip().startswith('sh("python '), line
