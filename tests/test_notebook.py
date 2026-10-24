@@ -98,5 +98,6 @@ def test_environment_is_the_locked_one():
     # the image's packages mixed versions with pip; the launcher installs uv.lock exactly
     text = "\n".join(_code())
     assert "uv sync --frozen" in text and "pip install -q -r requirements.txt" not in text
+    assert text.index('os.environ["MPLBACKEND"] = "Agg"') < text.index("pytest -q")
     for line in text.splitlines():
         assert not line.lstrip().startswith('sh("python '), line
