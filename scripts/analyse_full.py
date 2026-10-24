@@ -5,8 +5,8 @@
 ``--runs-root`` holds ``full/<run>/checkpoints``; the records are read from ``results/full``.
 Nothing under either is written. For every run the script
 
-1. re-evaluates the checkpoint on CPU and compares every stored metric (evaluated on the GPU)
-   with the recomputed value, and records the SHA-256 of the checkpoint files and of the
+1. re-evaluates the checkpoint on CPU and compares every metric evaluated on the GPU
+   (``eval_metrics_cuda.json``, see ``scripts/results.py merge``) with the recomputed value, and records the SHA-256 of the checkpoint files and of the
    resolved configuration;
 2. estimates the loss of the final network on 25 independent batches at the upstream point
    counts: a validation loss on points the network was not trained on;
@@ -195,7 +195,7 @@ def main() -> None:
         name = engine.run_name(reynolds, seed)
         run_dir = args.runs_root / "full" / name
         records = args.records / name
-        stored = json.loads((records / "eval_metrics.json").read_text())
+        stored = json.loads((records / "eval_metrics_cuda.json").read_text())  # evaluated on the GPU
         train = json.loads((records / "train_metrics.json").read_text())
         metrics, fields = engine.evaluate_run(cfg, reynolds, run_dir, DEVICE, references[reynolds], write=False)
         model = engine.build_model(cfg)
