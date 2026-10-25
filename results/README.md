@@ -12,6 +12,10 @@ Tracked result files. Each study directory is a copy of a run directory without 
 | `<study>/re<Re>_seed<S>/history.csv` | learning rate, loss, the seven loss terms and the tracked velocity error against the step |
 | `<study>/re<Re>_seed<S>/train_metrics.json` | viscosity, parameter count, final loss terms, timings, memory |
 | `<study>/re<Re>_seed<S>/eval_metrics.json` | errors against the reference, boundary errors, residuals, inference time |
+| `full/re<Re>_seed<S>/eval_metrics_cuda.json` | the same, evaluated on the GPU in the training session; present for Re 10, whose session finished its evaluation |
+| `full/sessions/<tag>/` | per Kaggle session: `study_metadata.json` (commit, environment, configuration of that session), `nvidia-smi.txt`, `pip-freeze.txt`, and the session's own `summary.*` where its evaluation finished |
+| `full/analysis.json` | output of `scripts/analyse_full.py`: CPU-vs-GPU check, checkpoint and configuration hashes, validation loss, streamfunction and primary vortex, hidden-layer state, collapse scan, nearest lid-layer field, analytic fields scored with the same objective, aggregates with $t$ intervals and paired differences to `local` |
+| `audit/audit.json` | output of `scripts/audit.py` (see docs/SCIENTIFIC_AUDIT.md) |
 
 Studies present:
 
@@ -19,7 +23,7 @@ Studies present:
 |---|---|---|---|
 | `local` | `configs/local.yaml`: Re 10, 100, 400, three seeds, 5000 steps, 1000 + 500 points per step | Apple MPS | run |
 | `official` | `configs/official.yaml`: the upstream settings, Re 10, one seed, 10 000 steps, 4000 + 2000 points per step | Apple MPS | run |
-| `full` | `configs/full.yaml`: Re 10, 100, 400, three seeds at the upstream settings | CUDA | pending |
+| `full` | `configs/full.yaml`: Re 10, 100, 400, three seeds at the upstream settings | CUDA, Tesla T4 (Kaggle) | run |
 
 Units and definitions:
 
@@ -30,3 +34,5 @@ Units and definitions:
 - Times are wall-clock seconds or milliseconds with the device synchronised. `peak_train_memory_mb` is the CUDA peak allocation and is empty on other devices.
 
 `study_metadata.json` of `local` and `official` carries a `metadata_note`: both studies were launched with `--resume`, which did not write the record at that commit, so it was written from the same clean checkout while the studies were running or after they had finished. `timestamp_utc` is the time of writing. The timings of both studies were taken while another training job was using the same machine and are not benchmarks.
+
+`full` was trained on Kaggle, one session per Reynolds number, and combined with `scripts/results.py merge`. Its `study_metadata.json` is that of the Re 10 session, with the Reynolds numbers and the list of all sessions; each session's own record is under `sessions/`. Its `eval_metrics.json`, `summary.*` and `fields.npz` were computed on CPU from the checkpoints, so `inference_ms` is that of the CPU; training times and `peak_train_memory_mb` are those of the T4. See docs/FULL_BUDGET_STUDY.md.

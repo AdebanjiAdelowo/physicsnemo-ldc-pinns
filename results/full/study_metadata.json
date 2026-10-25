@@ -1,0 +1,121 @@
+{
+  "timestamp_utc": "2026-10-24T22:47:04+00:00",
+  "git_commit": "36c76aa67eb618cc654785dd61be91577f489455",
+  "git_dirty": false,
+  "device": "cuda",
+  "gpu_name": "Tesla T4",
+  "cuda_version": "13.0",
+  "python_version": "3.13.15",
+  "torch_version": "2.14.1+cu130",
+  "physicsnemo": {
+    "version": "2.3.0a0",
+    "commit": "b45a5c810c741e6b41f8515be24c51121f8fc21f",
+    "url": "https://github.com/NVIDIA/physicsnemo.git"
+  },
+  "numpy_version": "2.5.3",
+  "scipy_version": "1.18.1",
+  "sympy_version": "1.14.0",
+  "platform": "Linux-6.18.55+-x86_64-with-glibc2.39",
+  "processor": "x86_64",
+  "config": {
+    "arch": {
+      "decoder": {
+        "out_features": 3,
+        "layers": 1,
+        "layer_size": 32
+      },
+      "fno": {
+        "in_channels": 2,
+        "dimension": 2,
+        "latent_channels": 32,
+        "fno_layers": 4,
+        "fno_modes": 12,
+        "padding": 9
+      }
+    },
+    "scheduler": {
+      "initial_lr": 0.001,
+      "decay_rate": 0.9995
+    },
+    "name": "full",
+    "device": "cuda",
+    "output_dir": "runs/full",
+    "data_dir": "data",
+    "problem": {
+      "width": 0.1,
+      "height": 0.1,
+      "lid_velocity": 1.0,
+      "rho": 1.0
+    },
+    "model": {
+      "num_layers": 6,
+      "layer_size": 512
+    },
+    "geometry": {
+      "mesh_points_per_side": 50
+    },
+    "training": {
+      "steps": 10000,
+      "interior_points": 4000,
+      "boundary_points": 2000,
+      "lr_decay_per_step": 0.9999871767586216,
+      "log_every": 100,
+      "error_every": 1000
+    },
+    "study": {
+      "reynolds": [
+        10,
+        100,
+        400
+      ],
+      "seeds": [
+        0,
+        1,
+        2
+      ]
+    },
+    "reference": {
+      "grid": 513
+    },
+    "evaluation": {
+      "residual_grid": 128,
+      "timing_warmup": 3,
+      "timing_repeats": 10
+    }
+  },
+  "references": {
+    "10": {
+      "file": "reference_re10_n513_ece3f548fb.npz",
+      "grid": 513,
+      "solve_seconds": 104.69817584799995,
+      "newton_final_residual": 2.790329745039344e-09
+    }
+  },
+  "sessions": [
+    {
+      "name": "re10",
+      "git_commit": "36c76aa67eb618cc654785dd61be91577f489455",
+      "gpu_name": "Tesla T4",
+      "timestamp_utc": "2026-10-24T22:47:04+00:00",
+      "evaluated_on_gpu": [
+        "re0010_seed0",
+        "re0010_seed1",
+        "re0010_seed2"
+      ]
+    },
+    {
+      "name": "re100",
+      "git_commit": "3ab0ccabb28e8fa8773c017cbbd12dfe71ee8d62",
+      "gpu_name": "Tesla T4",
+      "timestamp_utc": "2026-10-24T19:26:26+00:00",
+      "evaluated_on_gpu": []
+    },
+    {
+      "name": "re400",
+      "git_commit": "3ab0ccabb28e8fa8773c017cbbd12dfe71ee8d62",
+      "gpu_name": "Tesla T4",
+      "timestamp_utc": "2026-10-24T19:30:57+00:00",
+      "evaluated_on_gpu": []
+    }
+  ]
+}

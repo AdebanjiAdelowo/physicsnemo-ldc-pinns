@@ -4,7 +4,8 @@ Scope: the mathematics, the numerics and the software of this repository at comm
 
 - [UPSTREAM_COMPARISON.md](UPSTREAM_COMPARISON.md): the recipe against the upstream `train.py`, element by element;
 - [REFERENCE_SOLVER_VALIDATION.md](REFERENCE_SOLVER_VALIDATION.md): the finite-difference reference;
-- [EXPERIMENT_GAPS.md](EXPERIMENT_GAPS.md): what has not been run, with commands and resource estimates.
+- [EXPERIMENT_GAPS.md](EXPERIMENT_GAPS.md): what has not been run, with commands and resource estimates;
+- [FULL_BUDGET_STUDY.md](FULL_BUDGET_STUDY.md): the study at the upstream budget, run after this audit (see the [addendum](#addendum-the-study-at-the-upstream-budget)).
 
 ## Classification
 
@@ -48,9 +49,13 @@ uv run python scripts/audit.py --runs-root <directory with official/ and local/ 
 | F12 | The networks at Re = 100 and 400 are not at a good minimum of their own loss: their loss is 30 to 660 times that of the lid-layer field and is dominated by the wall terms. | VERIFIED |
 | F13 | The Kaggle launcher cloned `physicsnemo-pinn-cavity` instead of this repository. | INCORRECT (fixed) |
 | F14 | "Python 3.11 to 3.14": the recorded environment requires Python 3.12 or later (NumPy 2.5.3). | INCORRECT (fixed) |
-| F15 | That the failure at Re = 100 and 400 persists at the upstream budget. | UNVERIFIED: `configs/full.yaml` has not been run |
+| F15 | That the failure at Re = 100 and 400 persists at the upstream budget. | VERIFIED for the nine runs of `configs/full.yaml` (addendum, F18) |
 | F16 | Which feature of the recipe causes the failure (distance weighting, unnormalised inputs, loss balance, optimiser). | UNVERIFIED as a cause; F1 shows that the loss formulation admits the observed failure mode at any budget |
 | F17 | Pressure. | UNVERIFIED: not evaluated, the reference does not compute it |
+| F18 | At the upstream budget no run at Re = 100 or 400 recovers the cavity flow (errors 0.66 to 0.90; primary vortex absent or at most 19% of the reference strength). At Re = 10 the error falls in two of three seeds. | VERIFIED (addendum) |
+| F19 | The lid-layer counterexample of F1 still matches or beats every trained network at Re = 100 and 400 at the upstream budget. | VERIFIED (addendum) |
+| F20 | The constant-field collapse of F2 recurs at the upstream budget. | Not reproduced: 0 of 9 runs (addendum) |
+| F21 | The Kaggle launcher ran on Kaggle as written. | INCORRECT (fixed): three environment and memory defects, found and fixed while running the study (addendum) |
 
 ## F1. Low weighted loss with large physical error
 
@@ -267,3 +272,44 @@ None of these has been tested, and the conclusion should not imply that they hav
 | `docs/` | this audit |
 
 The original evidence in `results/official`, `results/local`, `results/reference_check.json` and `figures/` was not modified.
+
+## Addendum: the study at the upstream budget
+
+Added after the audit, when `configs/full.yaml` was run on CUDA. Full report: [FULL_BUDGET_STUDY.md](FULL_BUDGET_STUDY.md). Records: `results/full/` (`analysis.json` for the diagnostics). The sections above are unchanged and describe the evidence at the audit commit.
+
+**Runs.** Nine runs: Re ∈ {10, 100, 400} × seeds {0, 1, 2}, 10 000 steps, 4000 interior and 2000 boundary points per step, the upstream network, loss and optimiser. They ran on one Tesla T4 per Kaggle session from clean checkouts (commits `3ab0cca` and `36c76aa`, identical training code), with the environment of `uv.lock`: 7.8 GPU-hours of training. The checkpoints were evaluated on CPU. Where the GPU also evaluated, the two agree to $5.5 \times 10^{-8}$ relative.
+
+**F15, F18. The failure persists.**
+
+| Re | Velocity error, seeds 0, 1, 2 | Median: reduced budget, upstream budget | $\psi_{\min}$ / reference |
+|---|---|---|---|
+| 10 | 0.350, 0.349, 0.505 | 0.456, 0.350 | 0.63, 0.64, 0.58 |
+| 100 | 0.837, 0.669, 0.655 | 0.805, 0.669 | 0.00, 0.19, 0.19 |
+| 400 | 0.904, 0.881, 0.860 | 0.889, 0.881 | 0.01, 0.03, 0.19 |
+
+- At Re = 400 no network has a primary vortex.
+- At Re = 100 one has none, and two have a weak vortex displaced by $0.18L$ to $0.24L$ towards the downstream lid corner.
+- The Re = 10 seed 2 value is that of a loss spike on the last step: its error was 0.30 at step 9000.
+- The same configuration and seed gives 0.383 on MPS (`official`) and 0.350 on CUDA. Differences of that size between the two budgets are within device variation.
+
+**F19. The counterexample holds.** Scored with the same objective, the best lid-layer field (no recirculation) has loss $7.0 \times 10^{-4}$ at Re = 100 and $9.5 \times 10^{-5}$ at Re = 400.
+
+- The validation losses of the trained networks, over 25 independent batches, are 1.05 to 14.7 times the lid-layer value at Re = 100 and 59 to 181 times it at Re = 400.
+- At Re = 100 the two best networks tie with a field that has no vortex.
+
+**F20. Collapse not reproduced.** No hidden neuron of any of the nine final networks is constant or identically zero over the cavity, and no training record has vanishing residuals. Zero events in nine runs bounds the per-run probability at 0.28 (one-sided 95%). The cause of the collapse in F2 remains UNVERIFIED and is not attributed to budget or device.
+
+**F16, revisited.** The study separates two weaknesses but does not rank them:
+
+- **Objective.** The loss does not discriminate fields with no recirculation at the values reached at Re = 100 (F1, F19).
+- **Optimisation.** At Re = 400 the optimiser stops 59 to 181 times above a loss that a two-parameter field reaches, with the loss dominated by the boundary terms (F12 at the upstream budget).
+
+Which one controls the outcome is UNVERIFIED (gaps G2, G3).
+
+**F21. Launcher defects (fixed).**
+
+1. `pip install` into the Kaggle image mixed package versions, and the image's RAPIDS `cuml`, imported by PhysicsNeMo when present, rejected NumPy 2.5. The launcher now installs `uv.lock` with `uv sync --frozen`.
+2. The image's `MPLBACKEND` named a backend absent from that environment. The launcher now sets `Agg`.
+3. On a 16 GB GPU the evaluation ran out of memory in the inference timing, because the residual graphs were still held. They are now freed, with no metric change.
+
+Defects 1 and 2 stopped sessions before training. Defect 3 occurred after the six Re = 100 and 400 runs had saved their checkpoints, which were then evaluated on CPU.
