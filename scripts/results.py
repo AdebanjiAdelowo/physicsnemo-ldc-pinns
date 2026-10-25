@@ -17,7 +17,8 @@ recomputed where they are needed. ``publish`` refuses to overwrite an existing
 ``/kaggle/working`` of a session that trained some of its Reynolds numbers. Run directories,
 with their checkpoints, are copied into the target; the evaluation made on the GPU is kept as
 ``eval_metrics_cuda.json``, because a later evaluation on another machine rewrites
-``eval_metrics.json``. Every session's metadata, summary, ``nvidia-smi`` and ``pip freeze``
+``eval_metrics.json``; a session whose evaluation did not finish is recorded with an empty
+``evaluated_on_gpu``. Every session's metadata, summary, ``nvidia-smi`` and ``pip freeze``
 output go to ``sessions/<name>/``. The merged ``study_metadata.json`` is the first session's,
 with the Reynolds numbers of all sessions and the list of sessions.
 """
@@ -92,18 +93,26 @@ def merge(target: Path, sessions: list[Path]) -> Path:
         tag = "re" + "-".join(str(r) for r in reynolds)
         record = target / "sessions" / tag
         record.mkdir(parents=True, exist_ok=True)
-        for path in [study / "study_metadata.json", study / "summary.json", study / "summary.csv", session / "nvidia-smi.txt", session / "pip-freeze.txt"]:
-            shutil.copy2(path, record / path.name)
+        shutil.copy2(study / "study_metadata.json", record / "study_metadata.json")
+        # a session whose evaluation did not finish has no summary and no eval_metrics.json
+        for path in [study / "summary.json", study / "summary.csv", session / "nvidia-smi.txt", session / "pip-freeze.txt"]:
+            if path.exists():
+                shutil.copy2(path, record / path.name)
+        evaluated = []
         for run in sorted(p for p in study.iterdir() if (p / "train_metrics.json").exists()):
             if (target / run.name).exists():
                 raise SystemExit(f"{target / run.name} exists; a run must come from exactly one session.")
             shutil.copytree(run, target / run.name)
-            shutil.copy2(run / "eval_metrics.json", target / run.name / "eval_metrics_cuda.json")
+            if (run / "eval_metrics.json").exists():
+                shutil.copy2(run / "eval_metrics.json", target / run.name / "eval_metrics_cuda.json")
+                evaluated.append(run.name)
         if merged is None:
             merged = {**meta, "sessions": []}
             merged["config"]["study"]["reynolds"] = []
         merged["config"]["study"]["reynolds"] = sorted(merged["config"]["study"]["reynolds"] + reynolds)
-        merged["sessions"].append({"name": tag, "git_commit": meta["git_commit"], "gpu_name": meta["gpu_name"], "timestamp_utc": meta["timestamp_utc"]})
+        merged["sessions"].append(
+            {"name": tag, "git_commit": meta["git_commit"], "gpu_name": meta["gpu_name"], "timestamp_utc": meta["timestamp_utc"], "evaluated_on_gpu": evaluated}
+        )
     (target / "study_metadata.json").write_text(json.dumps(merged, indent=2) + "\n")
     return target
 

@@ -195,7 +195,8 @@ def main() -> None:
         name = engine.run_name(reynolds, seed)
         run_dir = args.runs_root / "full" / name
         records = args.records / name
-        stored = json.loads((records / "eval_metrics_cuda.json").read_text())  # evaluated on the GPU
+        cuda_record = records / "eval_metrics_cuda.json"  # evaluated on the GPU, when the session got that far
+        stored = json.loads(cuda_record.read_text()) if cuda_record.exists() else None
         train = json.loads((records / "train_metrics.json").read_text())
         metrics, fields = engine.evaluate_run(cfg, reynolds, run_dir, DEVICE, references[reynolds], write=False)
         model = engine.build_model(cfg)
@@ -204,7 +205,7 @@ def main() -> None:
         circulation, psis[(reynolds, seed)] = recirculation(fields["u"], references[reynolds])
         state = network_state(model, references[reynolds])
         entry = {
-            "check": compare_stored(stored, metrics),
+            "check_against_gpu_evaluation": compare_stored(stored, metrics) if stored else None,
             "checkpoint_sha256": {p.name: sha256(p) for p in sorted((run_dir / "checkpoints").glob("*")) if p.is_file()},
             "train": {k: train[k] for k in ("final_train_loss", "final_loss_terms", "train_seconds", "seconds_per_step", "peak_train_memory_mb")},
             "evaluation": {k: v for k, v in metrics.items() if k not in {"reference_file", "inference_ms", "inference_points"}},
@@ -217,7 +218,7 @@ def main() -> None:
         }
         report["runs"][name] = entry
         print(
-            f"[run] {name}: error {metrics['velocity_rel_l2']:.4f}, stored-vs-CPU {entry['check']['worst_relative_difference']:.1e}, "
+            f"[run] {name}: error {metrics['velocity_rel_l2']:.4f}, "
             f"validation loss {entry['validation_loss']['loss']:.3e}, psi_min ratio {circulation['psi_min_over_reference']:.3f}, "
             f"collapsed {entry['collapsed']}",
             flush=True,
