@@ -117,3 +117,38 @@ def test_resume_writes_metadata_once_and_skips_finished_runs(tmp_path, capsys):
     study.train_study(cfg, tmp_path, resume=True)
     assert record.read_text() == first
     assert "[skip] re0010_seed0" in capsys.readouterr().out
+
+
+def test_merge_sessions(trained, tmp_path):
+    # two GPU sessions, one Reynolds number each, as downloaded from /kaggle/working
+    cfg, root, _ = trained
+    study_dir = root / cfg.output_dir
+    meta = json.loads((study_dir / "study_metadata.json").read_text())
+    sessions = []
+    for reynolds in cfg.study.reynolds:
+        session = tmp_path / f"session{reynolds}"
+        out = session / "physicsnemo-ldc-pinns" / "runs" / study_dir.name
+        out.mkdir(parents=True)
+        part = json.loads(json.dumps(meta))
+        part["config"]["study"]["reynolds"] = [int(reynolds)]
+        (out / "study_metadata.json").write_text(json.dumps(part))
+        for name in ("summary.json", "summary.csv"):
+            shutil.copy2(study_dir / name, out / name)
+        for run in study_dir.glob(f"re{int(reynolds):04d}_seed*"):
+            shutil.copytree(run, out / run.name)
+        (session / "nvidia-smi.txt").write_text("GPU")
+        (session / "pip-freeze.txt").write_text("torch==x")
+        sessions.append(session)
+    target = tmp_path / "runs" / study_dir.name
+    script = str(REPO_ROOT / "scripts" / "results.py")
+    subprocess.run([sys.executable, script, "merge", str(target), *map(str, sessions)], check=True, capture_output=True)
+    merged = json.loads((target / "study_metadata.json").read_text())
+    assert merged["config"]["study"]["reynolds"] == sorted(int(r) for r in cfg.study.reynolds)
+    assert [s["name"] for s in merged["sessions"]] == [f"re{int(r)}" for r in cfg.study.reynolds]
+    for reynolds, seed in engine.study_runs(cfg):
+        run = target / engine.run_name(reynolds, seed)
+        assert (run / "eval_metrics_cuda.json").read_text() == (run / "eval_metrics.json").read_text()
+        assert any((run / "checkpoints").iterdir())
+    assert (target / "sessions" / f"re{int(cfg.study.reynolds[0])}" / "pip-freeze.txt").exists()
+    # a run present in two sessions is refused
+    assert subprocess.run([sys.executable, script, "merge", str(tmp_path / "again"), str(sessions[0]), str(sessions[0])], capture_output=True).returncode != 0

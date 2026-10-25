@@ -10,10 +10,10 @@ A controlled experiment built on the physics-informed neural network (PINN) exam
 |---|---|---|---|---|---|
 | Upstream settings | `configs/official.yaml` | 10 | 1 | Apple MPS | yes |
 | Reduced study | `configs/local.yaml` | 10, 100, 400 | 3 | Apple MPS | yes |
-| Study at the upstream settings | `configs/full.yaml` | 10, 100, 400 | 3 | CUDA | no |
+| Study at the upstream settings | `configs/full.yaml` | 10, 100, 400 | 3 | CUDA (Tesla T4) | yes |
 | Reference solver checks | `scripts/verify_reference.py` | 10, 100, 400, 1000 | | CPU | yes |
 
-All numbers in [Results](#results) come from the first two studies. No CUDA result is reported.
+The three studies differ in training budget or device and are reported separately in [Results](#results).
 
 ## Motivation
 
@@ -133,7 +133,7 @@ One factor is varied: the Reynolds number, through the viscosity. Each value is 
 | Learning rate and decay per step | upstream | upstream | upstream | upstream |
 | Reference grid | 33 | 513 | 513 | 513 |
 | Device | CPU | MPS, CUDA or CPU | any | CUDA |
-| Run in this repository | yes | yes | yes | no |
+| Run in this repository | yes | yes | yes | yes |
 
 `official` is the example as shipped plus a seed. `full` differs from it only in the list of Reynolds numbers and seeds, so its run at $\mathrm{Re} = 10$ with seed 0 has the settings of `official`. `local` keeps the network, the loss, the optimiser and the decay, and reduces the points per step to a quarter and the steps to a half; a step of the upstream recipe takes about 0.5 s on the laptop used here.
 
@@ -190,35 +190,37 @@ python scripts/train.py --config full
 
 ### GPU workflow on Kaggle
 
-[`kaggle/run_cuda.ipynb`](kaggle/run_cuda.ipynb) is a launcher: it checks out one commit of this repository and calls its scripts. It contains no model or training code. It has been checked statically (`tests/test_notebook.py`) and has not been executed on Kaggle.
+[`kaggle/run_cuda.ipynb`](kaggle/run_cuda.ipynb) is a launcher: it checks out one commit of this repository, installs the environment of `uv.lock` with `uv sync --frozen` and calls the scripts of the repository. It contains no model or training code. The study at the upstream settings was run with it, one Kaggle session per Reynolds number.
 
 1. Create a Kaggle notebook from `kaggle/run_cuda.ipynb`. Session options: **Accelerator** an NVIDIA GPU, **Internet** on.
 2. In the first code cell set `REF` to the full 40-character SHA of the commit to run (`git rev-parse HEAD`). Branch and tag names are refused. For a private repository, store a GitHub token as a Kaggle secret and put the name of the secret in `GITHUB_TOKEN_SECRET`.
-3. Set `SESSION_BUDGET_HOURS` to the GPU time available for the session, and `RUN_FULL` as needed.
+3. Set `REYNOLDS` to the Reynolds numbers of `configs/full.yaml` for this session (one value per session gives three runs, about 2.7 h on a T4), `SESSION_BUDGET_HOURS` to the GPU time available, and `RUN_FULL` as needed.
 4. Run all.
+
+With the Kaggle command-line tool, `python kaggle/prepare_kernel.py --ref <SHA> --reynolds 100 --run-full --out <dir>` writes a private kernel with these settings, and `kaggle kernels push -p <dir>` starts it.
 
 | Step | Command run by the notebook | Runs when | Output in `/kaggle/working` |
 |---|---|---|---|
-| A | `python -m pytest -q`, a CUDA smoke study, a 200-step timing probe at the upstream settings | always | |
-| B | `python scripts/train.py --config full --resume device=cuda` | `RUN_FULL = True` | `physicsnemo-pinn-cavity-full.zip`, `physicsnemo-pinn-cavity-full-eval-bundle.zip` |
+| A | `python -m pytest -q`, a CUDA smoke study, a 200-step timing probe at the upstream settings | always | `nvidia-smi.txt`, `pip-freeze.txt` |
+| B | `python scripts/train.py --config full --resume device=cuda study.reynolds=[...]` | `RUN_FULL = True` | `physicsnemo-ldc-pinns-full-<tag>.zip`, `physicsnemo-ldc-pinns-full-<tag>-eval-bundle.zip` |
 
 Before B the notebook projects the runtime from the probe and compares it with what is left of `SESSION_BUDGET_HOURS`. If the projection does not fit, the step is not started and the configuration is not reduced. `<name>.zip` holds the records that are tracked in `results/`; `<name>-eval-bundle.zip` holds the final checkpoint of every run and is not tracked.
 
 ### Integrating GPU results
 
-From the repository root, with the archives downloaded to `~/Downloads`:
+From the repository root, with the output of every session downloaded (`kaggle kernels output <kernel> -p <session dir>`):
 
 ```bash
-cp ~/Downloads/physicsnemo-pinn-cavity-full.zip runs/full.zip
-python scripts/results.py publish runs/full.zip
-unzip ~/Downloads/physicsnemo-pinn-cavity-full-eval-bundle.zip -d .
-unzip runs/full.zip -d runs
-python scripts/evaluate.py --config full --verify device=mps
+python scripts/results.py merge runs/full <session dir> <session dir> <session dir>
+python scripts/evaluate.py --config full --verify device=cpu "study.reynolds=[10]"   # sessions that evaluated on the GPU
+python scripts/evaluate.py --config full device=cpu
+python scripts/results.py publish runs/full
+python scripts/analyse_full.py --runs-root runs
 python scripts/plot_results.py --study results/full --out figures
 python -m pytest -q
 ```
 
-`--verify` recomputes the velocity error of every run from its checkpoint, with a reference solution computed on the local machine, and compares it with the stored value. It writes nothing, so the timings and memory figures of the GPU run are kept.
+`merge` copies the run directories with their checkpoints and keeps each session's metadata, `nvidia-smi` and `pip freeze` output under `sessions/`, and the evaluation made on the GPU as `eval_metrics_cuda.json`. `--verify` recomputes the velocity error of every run from its checkpoint and compares it with the GPU value, writing nothing; it applies to sessions that evaluated on the GPU. `evaluate.py` then writes the combined summary on the local machine, whose inference times replace those of the GPU; training times and memory stay those of the GPU. `analyse_full.py` adds the diagnostics of [docs/FULL_BUDGET_STUDY.md](docs/FULL_BUDGET_STUDY.md).
 
 ## Evaluation
 
@@ -234,7 +236,7 @@ python scripts/verify_reference.py
 
 ## Results
 
-Two studies were run, both on an Apple M3 Pro with MPS, from a clean checkout of commit `ec3199d`. They differ in training budget and must be read separately.
+Three studies were run. The first two used an Apple M3 Pro with MPS, from a clean checkout of commit `ec3199d`; the third used Tesla T4 GPUs on Kaggle (see [Study at the upstream settings](#study-at-the-upstream-settings)). They differ in training budget or device and must be read separately.
 
 - **Upstream settings** (`configs/official.yaml`): the example as shipped, $\mathrm{Re} = 10$, 10 000 steps, 4000 interior and 2000 boundary points per step, seed 0. Source: [`results/official/summary.csv`](results/official/summary.csv).
 - **Reduced study** (`configs/local.yaml`): $\mathrm{Re} \in \{10, 100, 400\}$, three seeds, 5000 steps, 1000 interior and 500 boundary points per step. Source: [`results/local/summary.csv`](results/local/summary.csv).
@@ -296,9 +298,47 @@ With the budget of the example, the velocity error at $\mathrm{Re} = 10$ is 38.3
 
 *Reduced study. The seven terms of the loss, averaged over the last tenth of training and over seeds.*
 
+### Study at the upstream settings
+
+`configs/full.yaml`: $\mathrm{Re} \in \{10, 100, 400\}$, seeds 0, 1, 2, each with the 10 000 steps and the 4000 interior and 2000 boundary points per step of the example. Trained on one Tesla T4 per Kaggle session in the environment of `uv.lock` (PyTorch 2.14.1, CUDA 13.0), from clean checkouts of commits `3ab0cca` (Re 100, 400) and `36c76aa` (Re 10), whose training code is identical. Evaluated on CPU from the checkpoints. Training took 7.8 GPU-hours, about 53 minutes per run. Source: [`results/full/summary.csv`](results/full/summary.csv), [`results/full/analysis.json`](results/full/analysis.json). Full report: [docs/FULL_BUDGET_STUDY.md](docs/FULL_BUDGET_STUDY.md).
+
+| Re | Seed | Velocity error | Velocity error, core | Error of $v$ | Primary vortex, $\psi_{\min}$ / reference | Continuity residual | $x$ momentum residual | Fixed walls, RMS | Lid, RMS | Validation loss |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | 0 | 35.0% | 43.9% | 44.2% | 0.63 | 0.83 | 0.74 | 0.009 | 0.142 | 1.2e-03 |
+| 10 | 1 | 34.9% | 40.7% | 42.6% | 0.64 | 1.12 | 0.82 | 0.010 | 0.126 | 7.6e-04 |
+| 10 | 2 | 50.5% | 67.6% | 75.2% | 0.58 | 0.25 | 0.39 | 0.101 | 0.234 | 2.9e-02 |
+| 100 | 0 | 83.7% | 99.5% | 100.1% | none | 0.19 | 1.20 | 0.058 | 0.149 | 1.0e-02 |
+| 100 | 1 | 66.9% | 89.2% | 96.6% | 0.19 | 1.09 | 0.39 | 0.010 | 0.121 | 7.4e-04 |
+| 100 | 2 | 65.5% | 88.2% | 91.5% | 0.19 | 0.88 | 0.50 | 0.017 | 0.101 | 9.2e-04 |
+| 400 | 0 | 90.4% | 100.0% | 100.0% | none in the cavity | 0.10 | 0.46 | 0.061 | 0.086 | 5.6e-03 |
+| 400 | 1 | 88.1% | 101.2% | 99.9% | none in the cavity | 0.08 | 0.27 | 0.104 | 0.065 | 1.4e-02 |
+| 400 | 2 | 86.0% | 97.0% | 100.2% | none in the cavity | 0.04 | 0.15 | 0.089 | 0.141 | 1.7e-02 |
+
+Boundary errors leave out the two lid-corner nodes. The validation loss is the loss of the example averaged over 25 independent batches of 4000 interior and 2000 boundary points. The primary vortex is the minimum of the streamfunction obtained by integrating $u$. At $\mathrm{Re} = 400$ that minimum lies at the downstream lid corner, which is reported as no vortex in the cavity.
+
+| Re | Velocity error, median and range over seeds | Mean and 95% $t$ interval | Reduced study, median |
+|---|---|---|---|
+| 10 | 35.0% (34.9% to 50.5%) | 40.2% [17.9%, 62.5%] | 45.6% |
+| 100 | 66.9% (65.5% to 83.7%) | 72.0% [46.8%, 97.2%] | 80.5% |
+| 400 | 88.1% (86.0% to 90.4%) | 88.2% [82.7%, 93.6%] | 88.9% |
+
+With three seeds the $t$ intervals are wide and describe these runs only.
+
+![Streamfunction at the upstream settings](figures/full_streamfunction.png)
+
+*Study at the upstream settings. Streamfunction of the reference and of every seed, on the colour scale of the reference in each row.*
+
+![Centreline profiles at the upstream settings](figures/full_centrelines.png)
+
+*Study at the upstream settings. Velocity on the two centrelines for every seed, with the reference solver and the tabulated values of Ghia et al.*
+
+![Error and residual against the Reynolds number at the upstream settings](figures/full_error_vs_reynolds.png)
+
+*Study at the upstream settings. Velocity error and unweighted residual of the $x$ momentum equation, one point per seed.*
+
 ## Interpretation
 
-The statements below are about this network, this loss and this optimisation recipe, at the budgets that were run. They are not statements about PINNs in general, and the comparison across Reynolds numbers exists only at the reduced budget.
+The statements below are about this network, this loss and this optimisation recipe, at the budgets that were run. They are not statements about PINNs in general. The first bullets describe the reduced study; the last ones the study at the upstream settings.
 
 - **Budget is a factor at $\mathrm{Re} = 10$, and it does not close the gap.** Four times the points and twice the steps lower the error of seed 0 from 47.3% to 38.3%. The plateau after step 4000 indicates that more steps of the same recipe would not bring a large further gain; one seed is not enough to quantify this.
 - **At $\mathrm{Re} = 100$ and $400$ the reduced runs do not find the cavity flow.** In all six of these runs the error against the reference is 80% or more, and the error of the vertical velocity is 100.0% to 100.1%: the predicted $v$ is essentially zero everywhere. Apart from the collapsed run described below, the networks represent a thin layer below the lid in which $u$ drops from the lid speed to about zero, above an interior at rest. In the central part of the cavity the error is 100% or more.
@@ -311,17 +351,24 @@ The statements below are about this network, this loss and this optimisation rec
 
 Two features of the recipe are consistent with these observations: the residual terms enter the loss with weights of at most $2.5 \times 10^{-3}$ against 1 for the boundary terms, and the viscous term that couples the lid to the interior is itself multiplied by $\nu$, which is 10 and 40 times smaller at the higher Reynolds numbers. The construction above shows that together they make degenerate low-loss fields available; which change of the recipe would remove them has not been tested.
 
-Whether the higher Reynolds numbers behave differently with the full budget of the example is the question of `configs/full.yaml`, which gives every Reynolds number and seed the 10 000 steps and the point counts of the original. It has not been run.
+At the budget of the example (`configs/full.yaml`):
+
+- **The failure at $\mathrm{Re} = 100$ and $400$ persists.** No run recovers the cavity flow. The velocity errors are 66% to 90%, and 88% to 101% in the central part. At $\mathrm{Re} = 400$ no network has a primary vortex in the cavity and the predicted $v$ is essentially zero. At $\mathrm{Re} = 100$ one network has no vortex and two have a weak one, with 19% of the reference strength, displaced towards the downstream lid corner.
+- **The larger budget helps at $\mathrm{Re} = 10$ only.** The error falls from 47.3% and 45.6% to 35.0% and 34.9% for seeds 0 and 1. Seed 2 ends at 50.5% because its last step lands on a loss spike; its tracked error was 29.9% at step 9000. All three networks have one vortex with 58% to 64% of the reference strength. At $\mathrm{Re} = 400$ the median error is unchanged (88.9% and 88.1%).
+- **The device matters at the level of a few percent.** The run at $\mathrm{Re} = 10$ with seed 0 has the settings of `official` and ends at 35.0% on CUDA against 38.3% on MPS. Differences of that size between the two budgets are not attributed to the budget.
+- **The lid-layer field still matches the trained networks.** At $\mathrm{Re} = 100$ the two best networks have a validation loss 1.05 and 1.32 times that of the lid-layer field, which has no recirculation, for velocity errors of 67% and 66% against 75%. At $\mathrm{Re} = 400$ the trained networks are 59 to 181 times above it. At $\mathrm{Re} = 10$ two of three networks are 16 to 27 times below it.
+- **Two weaknesses, not ranked.** At $\mathrm{Re} = 100$ the loss does not separate fields with and without recirculation at the values reached. At $\mathrm{Re} = 400$ the optimiser stops far above a loss that a two-parameter field attains, with 96% or more of the loss in the boundary terms. Which of the two controls the outcome, and which change of the recipe would remove it, has not been tested.
+- **No collapse.** None of the nine networks has a saturated hidden layer, and no training record has vanishing residuals. The collapse of the reduced study is not reproduced, which does not rule it out at this budget: zero events in nine runs is consistent with a per-run probability of up to 0.28.
 
 ## Limitations
 
-- The comparison across Reynolds numbers exists only at the reduced budget (half the steps and a quarter of the points of the example). It shows what this recipe does at that budget and does not establish a Reynolds-number limit of the method.
-- The upstream settings were run for one seed and one Reynolds number. The spread over seeds at that budget is unknown.
+- Three seeds per Reynolds number in each study. The spread over seeds describes these runs; it is not an estimate of a population variance.
+- The reduced study ran on MPS and the study at the upstream settings on CUDA, so a comparison between them mixes budget and device. The same configuration and seed differs by 3.3 percentage points between the two devices.
 - Only the viscosity is varied. Loss weights, network size, activation, learning rate, sampling and the unnormalised inputs are those of the example, and none of them is tested as a cause of the behaviour.
 - Fixed training budgets, not converged runs. The reported errors are those of the last step; in several runs the tracked error was lower at an earlier step.
 - The pressure is not evaluated. The reference solver uses the stream-function and vorticity form and does not produce it.
 - The reference has a discontinuous boundary velocity at the two upper corners, while the loss of the example weights the lid condition down to zero there. Part of the error over the whole cavity sits at these corners; the error in the central part is reported separately for that reason.
-- All runs used Apple MPS in single precision. Nothing has been run on CUDA, and results on different devices are not bitwise identical.
+- All runs used single precision. The reduced study and `official` ran on Apple MPS, the study at the upstream settings on a Tesla T4. Results on different devices are not bitwise identical.
 - Training and inference times were recorded while another training job was using the same machine, and the machine slept for seven hours during the evaluation of the reduced study. They are kept in the records and are not benchmarks; no timing result is reported. An isolated measurement before the studies gave about 0.5 s per step for the upstream recipe on MPS.
 - The values of Ghia et al. were transcribed by hand. They are a secondary check; the solver is verified against the published extrema independently of them.
 
@@ -335,20 +382,21 @@ The audit adds metrics that do not depend on the two lid corners, where the boun
 
 - Every study writes `study_metadata.json` with the UTC timestamp, the git commit and whether the tree was modified, the device, the Python, PyTorch, PhysicsNeMo (version and commit), NumPy, SciPy and SymPy versions, the resolved configuration, and a record of each reference solution.
 - Seeds 0, 1, 2. The network is initialised on CPU and then moved to the device; the collocation points are drawn on the device from the same seed. A CPU training run repeats its final loss to a relative tolerance of $10^{-5}$ (`tests/test_pipeline.py`).
-- Both studies ran from a clean checkout of commit `ec3199d`. The stored velocity errors of all ten runs were recomputed on CPU from the checkpoints with `scripts/evaluate.py --verify` and agree to a relative difference below $10^{-7}$.
+- The reduced study and `official` ran from a clean checkout of commit `ec3199d`. The stored velocity errors of all ten runs were recomputed on CPU from the checkpoints with `scripts/evaluate.py --verify` and agree to a relative difference below $10^{-7}$.
+- The study at the upstream settings ran from clean checkouts of `3ab0cca` and `36c76aa` (identical training code) in the environment of `uv.lock`; `results/full/sessions/` holds each session's metadata, GPU description and package list. The three runs evaluated on the GPU agree with the CPU evaluation to $5.5 \times 10^{-8}$ relative. `results/full/analysis.json` records the SHA-256 of every checkpoint and of the resolved configuration, which is identical for all sessions.
 - The `study_metadata.json` files of `local` and `official` were written after the studies had started and say so in `metadata_note`: the studies were launched with `--resume`, which at that commit did not write the record. Commit, environment and configuration are those of the runs; `timestamp_utc` is the time of writing. `--resume` now writes the record when none exists.
 - Reference solutions are cached under `data/` with a key that covers the Reynolds number, the grid, the cavity size, the lid speed and a solver version. `data/`, `runs/` and checkpoints are not tracked.
-- 52 tests cover the configurations, the equality of the loss with the upstream expression, the residuals against an analytic field, the reference solver, an end-to-end study, the Kaggle launcher and the properties of the loss established by the audit.
+- 57 tests cover the configurations, the equality of the loss with the upstream expression, the residuals against an analytic field, the reference solver, an end-to-end study, the Kaggle launcher and the properties of the loss established by the audit.
 
 Repository layout:
 
 ```text
 configs/          official.yaml (upstream values), smoke.yaml, local.yaml, full.yaml
 src/pinn_cavity/  config, equations, engine, study, reference, plotting, provenance, diagnostics
-scripts/          train.py, evaluate.py, plot_results.py, results.py, verify_reference.py, audit.py
+scripts/          train.py, evaluate.py, plot_results.py, results.py, verify_reference.py, audit.py, analyse_full.py
 tests/            configuration, loss and residuals, reference solver, end-to-end study, notebook, audit
-kaggle/           run_cuda.ipynb
-docs/             scientific audit, upstream comparison, reference validation, experiment gaps
+kaggle/           run_cuda.ipynb, prepare_kernel.py
+docs/             scientific audit, upstream comparison, reference validation, experiment gaps, study at the upstream budget
 results/          tracked summaries and records; results/audit/ holds the audit recomputation
 figures/          tracked figures
 ```

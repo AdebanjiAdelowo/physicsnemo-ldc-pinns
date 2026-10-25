@@ -94,3 +94,45 @@ def test_a_field_that_is_not_the_cavity_flow_beats_the_trained_networks_at_re100
     pred = engine.predict(LidLayer(0.1, 1.0, 0.005, 0.0002), points)[:, :2]
     truth = np.stack([reference["u"].ravel(), reference["v"].ravel()], axis=1)
     assert engine.relative_l2(pred, truth) > 0.7
+
+
+def test_streamfunction_of_the_reference_and_its_primary_vortex(re100):
+    from pinn_cavity.diagnostics import primary_vortex, streamfunction
+
+    psi, exact = streamfunction(re100["u"], re100["y"]), re100["psi"]
+    scale = np.abs(exact).max()
+    # The two side-wall columns are left out: the reference gives the lid corner nodes u = U.
+    # Below 0.9 L, integrating u recovers the solver's psi to second order; the last cell under
+    # the lid, where u jumps to U, is first order (5.8% of |psi_min| at 65 nodes, 2.8% at 129).
+    below = (re100["y"] - re100["y"][0]) / 0.1 <= 0.9
+    assert np.abs(psi - exact)[1:-1][:, below].max() < 0.005 * scale
+    assert np.abs(psi[1:-1, -1]).max() < 0.07 * scale
+    vortex, solver = primary_vortex(psi, re100["x"], re100["y"]), primary_vortex(exact, re100["x"], re100["y"])
+    assert vortex["psi_min"] == pytest.approx(solver["psi_min"], rel=0.005)
+    assert (vortex["x"], vortex["y"]) == (solver["x"], solver["y"])
+    # Re = 100: psi_min = -0.1035 U L at (0.6172, 0.7344) L in the unit square (Ghia et al.)
+    assert solver["psi_min"] == pytest.approx(-0.1035 * 0.1, rel=0.01)
+    assert abs(solver["x"] / 0.1 + 0.5 - 0.6172) < 0.02 and abs(solver["y"] / 0.1 + 0.5 - 0.7344) < 0.02
+    # a field at rest has no vortex
+    assert primary_vortex(streamfunction(np.zeros_like(re100["u"]), re100["y"]), re100["x"], re100["y"])["psi_min"] == 0
+
+
+def test_full_budget_study_records():
+    # the conclusions of docs/FULL_BUDGET_STUDY.md, from the tracked records of configs/full.yaml
+    analysis = json.loads((REPO_ROOT / "results" / "full" / "analysis.json").read_text())
+    runs, by_re = analysis["runs"], analysis["by_reynolds"]
+    assert len(runs) == 9 and len({s["config_sha256"] for s in analysis["sessions"].values()}) == 1
+    assert {s["config_sha256"] for s in analysis["sessions"].values()} == {analysis["config_sha256_full_yaml"]}
+    for name, run in runs.items():
+        assert run["train"]["final_train_loss"] is not None and not run["collapsed"]
+        assert run["history"]["first_step_residuals_vanish"] is None
+        if not name.startswith("re0010"):
+            # no run at Re = 100 or 400 recovers the cavity flow
+            assert run["evaluation"]["velocity_rel_l2"] > 0.6 and run["recirculation"]["psi_min_over_reference"] < 0.2
+    # the lid-layer field (no recirculation) matches or beats every trained network at Re = 100 and 400
+    for re in ("100", "400"):
+        assert min(by_re[re]["validation_loss_over_lid_layer_loss"]) > 1.0
+    # and the analytic field is the one of the audit, scored with the same objective
+    audit = json.loads((REPO_ROOT / "results" / "audit" / "audit.json").read_text())["trivial_and_degenerate_fields"]["lid_layer"]
+    for re in ("10", "100", "400"):
+        assert by_re[re]["lid_layer_best_loss"] == pytest.approx(audit[re]["best"]["loss"]["loss"], rel=1e-6)

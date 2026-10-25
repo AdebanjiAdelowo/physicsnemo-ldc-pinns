@@ -2,7 +2,7 @@
 
 What the evidence in this repository does not yet cover, ordered by how much each gap limits the conclusions. Findings F1 to F17 refer to [SCIENTIFIC_AUDIT.md](SCIENTIFIC_AUDIT.md).
 
-Status: **PENDING** means fully specified, with commands that exist in this repository. **NOT IMPLEMENTED** means a design only, with no code. None of these experiments has been run.
+Status: **DONE** means run and reported. **PENDING** means fully specified, with commands that exist in this repository. **NOT IMPLEMENTED** means a design only, with no code. G1 has been run ([FULL_BUDGET_STUDY.md](FULL_BUDGET_STUDY.md)); none of the others has.
 
 ## Budgets that must not be conflated
 
@@ -10,11 +10,13 @@ Status: **PENDING** means fully specified, with commands that exist in this repo
 |---|---|---|---|---|---|---|
 | `official` | 10 000 | 4000 / 2000 | $6.0 \times 10^7$ | 10 | 1 | run |
 | `local` | 5000 | 1000 / 500 | $7.5 \times 10^6$ (1/8 of `official`) | 10, 100, 400 | 3 | run |
-| `full` | 10 000 | 4000 / 2000 | $6.0 \times 10^7$ per run | 10, 100, 400 | 3 | PENDING |
+| `full` | 10 000 | 4000 / 2000 | $6.0 \times 10^7$ per run | 10, 100, 400 | 3 | run (CUDA, T4) |
 
-The only pair with the same Reynolds number and seed at both budgets is Re = 10, seed 0: error 0.473 at the reduced budget, 0.383 at the upstream budget. Every statement about the Reynolds-number trend rests on the reduced budget. A statement that "the upstream recipe fails at Re = 100" is not supported by any run (F15).
+Before G1, the only pair with the same Reynolds number and seed at both budgets was Re = 10, seed 0 (0.473 reduced, 0.383 upstream). G1 gives all nine pairs; the reduced and upstream-budget studies ran on different devices (MPS and CUDA), and the same configuration and seed differs by 0.03 between them (0.383 on MPS, 0.350 on CUDA).
 
-## G1. The study at the upstream budget (`configs/full.yaml`): PENDING, highest priority
+## G1. The study at the upstream budget (`configs/full.yaml`): DONE
+
+**Outcome.** Run on Kaggle T4 GPUs, one session per Reynolds number, 7.8 GPU-hours of training. The failure at Re = 100 and 400 persists (errors 0.66 to 0.90, no or a weak displaced primary vortex), the lid-layer counterexample still matches or beats every trained network at those Reynolds numbers, and the constant-field collapse did not recur (0 of 9). Report: [FULL_BUDGET_STUDY.md](FULL_BUDGET_STUDY.md). The plan below is kept as it was written; the executed procedure differs in that the launcher installs `uv.lock` (`uv sync --frozen`), takes `REYNOLDS` to split the study, and the sessions are combined with `scripts/results.py merge`, as in section 9 of the report.
 
 **Question.** Does the failure at Re = 100 and 400 persist at the budget of the example? What is the seed spread at that budget?
 
@@ -137,7 +139,9 @@ At Re = 10 and 400 the reference is checked by grid convergence and by its agree
 
 The network errors are at least 60 times the estimated reference error, so this gap cannot change any conclusion. It matters only if the network errors fall below a few percent.
 
-## G7. Is the trained field a lid layer: PENDING, CPU only
+## G7. Is the trained field a lid layer: DONE for `full`, PENDING for `local`
+
+For the upstream-budget networks, `scripts/analyse_full.py` finds the closest lid-layer field on a $16 \times 8$ grid of $(\delta, \varepsilon)$: relative distance 0.21 to 0.30 at Re = 100 and 400 ($\delta = 0.015L$ to $0.056L$), and at least 0.46 at Re = 10 (`results/full/analysis.json`, `nearest_lid_layer`). The higher-Re networks are closer to the lid-layer family than to the reference (errors 0.66 to 0.90), but not equal to any member of it. The reduced-study networks have not been analysed this way.
 
 **Question.** Are the trained Re = 100 and 400 networks close to the analytic lid-layer family of F1?
 
@@ -147,9 +151,17 @@ Fit $(\delta, \varepsilon)$ of `diagnostics.LidLayer` to each network's $u$ on t
 
 All runs used Apple MPS in float32. G1 adds CUDA. Neither result is bitwise reproducible on the other device. The stored errors recompute on CPU to $2.4 \times 10^{-5}$ relative (F3), which covers evaluation only, not training.
 
+## G9. Device variation: PENDING
+
+The same configuration and seed ends at 0.383 on MPS and 0.350 on CUDA. Repeating one configuration several times per device, with the same seed, would separate device from seed effects. Cost: one upstream-budget run is about 53 min on a T4.
+
+## G10. Final-iterate sensitivity: PENDING, CPU only for the analysis
+
+The recipe keeps the last iterate. `full/re0010_seed2` ends on a loss spike (error 0.30 at step 9000, 0.50 at step 10 000). Saving checkpoints every 1000 steps, or ending with a lower learning rate, would show how much of the reported spread comes from where spikes fall. This changes the recipe's outputs, not its training, if done by extra checkpoints only.
+
 ## Order of work
 
-1. G1: removes the budget confound and gives the seed spread at the upstream budget.
+1. G1: done.
 2. G7 and G2: decide between an optimisation failure and loss degeneracy.
 3. G3 (A1, A2 first): tests the cause, after approval of the methodological change.
 4. G4, G5, G6: strengthen secondary points.
